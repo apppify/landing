@@ -22,12 +22,12 @@ class PixelAnimationSystem {
   private currentPixel: number;
   private mousePosition: { x: number; y: number };
   private readonly colors: string[];
-  // Add cache for calculations
   private pixelsPerRow: number;
   private animationFrameId: number | null = null;
   private lastFrameTime: number = 0;
   private readonly targetFPS = 60;
   private readonly frameInterval = 1000 / this.targetFPS;
+  private isMouseMoving: boolean = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -35,7 +35,6 @@ class PixelAnimationSystem {
     if (!context) throw new Error('Could not get canvas context');
     this.ctx = context;
 
-    // Pre-calculate dimensions
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.pixelsPerRow = Math.floor(this.width / this.pixelSize);
@@ -49,7 +48,6 @@ class PixelAnimationSystem {
     };
     this.colors = ['#FFFFFF', '#EDEDEDED', '#1F1F1F'];
 
-    // Bind methods once
     this.handleResize = this.handleResize.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleTouchMove = this.handleTouchMove.bind(this);
@@ -66,16 +64,13 @@ class PixelAnimationSystem {
   }
 
   private setupCanvas(): void {
-    // Use CSS for canvas size
     this.canvas.style.width = `${this.width}px`;
     this.canvas.style.height = `${this.height}px`;
 
-    // Set actual pixels (considering device pixel ratio)
     const scale = window.devicePixelRatio || 1;
     this.canvas.width = this.width * scale;
     this.canvas.height = this.height * scale;
 
-    // Scale context to match
     this.ctx.scale(scale, scale);
 
     this.initializePixels();
@@ -85,7 +80,6 @@ class PixelAnimationSystem {
     const totalPixels = Math.ceil(this.height / this.pixelSize) * Math.ceil(this.width / this.pixelSize);
     this.pixels = new Array(totalPixels);
 
-    // Batch pixel creation
     for (let i = 0; i < totalPixels; i++) {
       const x = (i % this.pixelsPerRow) * this.pixelSize;
       const y = Math.floor(i / this.pixelsPerRow) * this.pixelSize;
@@ -104,7 +98,6 @@ class PixelAnimationSystem {
     const totalColoredPixels = 300;
     this.coloredPixels = new Array(totalColoredPixels);
 
-    // Pre-calculate center position
     const centerX = this.width / 2;
     const centerY = this.height / 2;
 
@@ -121,7 +114,6 @@ class PixelAnimationSystem {
   }
 
   private setupEventListeners(): void {
-    // Use passive event listeners where possible
     window.addEventListener('resize', this.handleResize, { passive: true });
     window.addEventListener('mousemove', this.handleMouseMove, { passive: true });
     document.addEventListener('touchstart', this.handleTouchMove, { passive: false });
@@ -129,7 +121,6 @@ class PixelAnimationSystem {
   }
 
   private handleResize(): void {
-    // Debounce resize handling
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);
     }
@@ -145,12 +136,16 @@ class PixelAnimationSystem {
   private handleMouseMove(e: MouseEvent): void {
     this.mousePosition.x = e.pageX;
     this.mousePosition.y = e.pageY;
+    this.isMouseMoving = true;
+    this.launchPixel();
   }
 
   private handleTouchMove(e: TouchEvent): void {
     e.preventDefault();
     this.mousePosition.x = e.touches[0].pageX;
     this.mousePosition.y = e.touches[0].pageY;
+    this.isMouseMoving = true;
+    this.launchPixel();
   }
 
   private launchPixel(): void {
@@ -165,7 +160,6 @@ class PixelAnimationSystem {
   private drawGrid(): void {
     this.ctx.clearRect(0, 0, this.width, this.height);
 
-    // Reset and update colored pixels in a single pass
     const pixelUpdates = new Map<number, ColoredPixel>();
 
     for (const coloredPixel of this.coloredPixels) {
@@ -183,14 +177,12 @@ class PixelAnimationSystem {
       }
     }
 
-    // Draw text (cached when possible)
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.textBaseline = 'middle';
     this.ctx.textAlign = 'center';
     this.ctx.font = `bold 22vmin geistSans`;
     this.ctx.fillText('AP3IFY👋', this.width / 2, this.height / 3);
 
-    // Batch render pixels
     this.ctx.fillStyle = '#222';
     for (const pixel of this.pixels) {
       this.ctx.globalAlpha = 1;
@@ -207,12 +199,16 @@ class PixelAnimationSystem {
   }
 
   private draw(timestamp: number): void {
-    // Implement frame rate control
     const elapsed = timestamp - this.lastFrameTime;
 
     if (elapsed >= this.frameInterval) {
       this.lastFrameTime = timestamp - (elapsed % this.frameInterval);
-      this.launchPixel();
+
+      if (this.isMouseMoving) {
+        this.isMouseMoving = false;
+        this.launchPixel();
+      }
+
       this.drawGrid();
     }
 
@@ -220,7 +216,6 @@ class PixelAnimationSystem {
   }
 
   public destroy(): void {
-    // Clean up resources
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
     }
@@ -232,7 +227,6 @@ class PixelAnimationSystem {
     document.removeEventListener('touchstart', this.handleTouchMove);
     document.removeEventListener('touchmove', this.handleTouchMove);
 
-    // Clear arrays
     this.pixels = [];
     this.coloredPixels = [];
   }
