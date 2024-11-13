@@ -3,7 +3,7 @@ import React from 'react'
 
 export const AiModelsSection = () => {
   return (
-    <section className='w-full'>
+    <section className='w-full py-6'>
       <div className="container mx-auto max-w-screen-xl flex justify-center">
         <div className="inline-flex flex-col gap-4 max-w-3xl mx-auto">
           <Image src='/images/ai_model_top.png' alt='ai' width={1723} height={638} />
