@@ -12,6 +12,7 @@ type ColoredPixel = {
 };
 
 class PixelAnimationSystem {
+  private readonly pixelSize = 16; // px
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private width: number;
@@ -21,7 +22,6 @@ class PixelAnimationSystem {
   private currentPixel: number;
   private mousePosition: { x: number; y: number };
   private colors: string[];
-  private readonly pixelSize = 10; // px
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -133,7 +133,7 @@ class PixelAnimationSystem {
     // Update colored pixels
     for (let i = 0; i < this.coloredPixels.length; i++) {
       const coloredPixel = this.coloredPixels[i];
-      const pixelIndex = Math.floor(coloredPixel.y / 10) * (Math.floor(this.width / 10) + 1) + Math.floor(coloredPixel.x / 10);
+      const pixelIndex = Math.floor(coloredPixel.y / this.pixelSize) * (Math.floor(this.width / this.pixelSize) + 1) + Math.floor(coloredPixel.x / this.pixelSize);
 
       if (this.pixels[pixelIndex]) {
         this.pixels[pixelIndex].color = coloredPixel.color;
@@ -146,6 +146,22 @@ class PixelAnimationSystem {
       coloredPixel.x += coloredPixel.vx;
       coloredPixel.y += coloredPixel.vy;
     }
+
+    // Draw text
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.textAlign = 'center';
+
+    // Calculate font size (30% of screen height)
+    // const fontSize = Math.floor((this.width / this.height) * 150);
+    this.ctx.font = `bold 22vmin geistSans`;
+
+    // Draw text centered
+    this.ctx.fillText(
+      'AP3IFY👋',
+      this.width / 2,
+      this.height / 2
+    );
 
     // Draw pixels
     for (const pixel of this.pixels) {
