@@ -8,9 +8,9 @@ export const HeroSection = () => {
   usePixelAnimation(canvasRef)
 
   return (
-    <div className="relative select-none pointer-events-none">
+    <div className="relative select-none pointer-events-none -mt-16">
       <canvas ref={canvasRef} />
-      <div className="before:block absolute w-screen h-[30vh] bottom-0 left-0 z-10 bg-gradient-to-t from-background to-transparent"></div>
+      <div className="absolute w-screen h-[30vh] bottom-0 left-0 z-10 bg-gradient-to-t from-background to-transparent"></div>
     </div >
   )
 }

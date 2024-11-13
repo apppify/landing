@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import { TopBar } from "@/components/home/topbar";
 import { ThemeProvider } from "@/components/theme-provider";
+import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -35,6 +36,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <TopBar />
           {children}
         </ThemeProvider>
       </body>
