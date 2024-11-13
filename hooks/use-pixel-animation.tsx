@@ -12,25 +12,34 @@ type ColoredPixel = {
 };
 
 class PixelAnimationSystem {
-  private readonly pixelSize = 16; // px
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  private readonly pixelSize = 10; // px
+  private readonly canvas: HTMLCanvasElement;
+  private readonly ctx: CanvasRenderingContext2D;
   private width: number;
   private height: number;
   private pixels: Pixel[];
   private coloredPixels: ColoredPixel[];
   private currentPixel: number;
   private mousePosition: { x: number; y: number };
-  private colors: string[];
+  private readonly colors: string[];
+  // Add cache for calculations
+  private pixelsPerRow: number;
+  private animationFrameId: number | null = null;
+  private lastFrameTime: number = 0;
+  private readonly targetFPS = 60;
+  private readonly frameInterval = 1000 / this.targetFPS;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext('2d', { alpha: false }); // Optimize for non-transparent canvas
     if (!context) throw new Error('Could not get canvas context');
     this.ctx = context;
 
+    // Pre-calculate dimensions
     this.width = window.innerWidth;
     this.height = window.innerHeight;
+    this.pixelsPerRow = Math.floor(this.width / this.pixelSize);
+
     this.pixels = [];
     this.coloredPixels = [];
     this.currentPixel = 0;
@@ -38,12 +47,13 @@ class PixelAnimationSystem {
       x: window.innerWidth / 2,
       y: window.innerHeight / 2
     };
-    this.colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF']; // Example colors
+    this.colors = ['#FFFFFF', '#EDEDEDED', '#1F1F1F'];
 
-    // Bind methods to preserve this context
+    // Bind methods once
     this.handleResize = this.handleResize.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleTouchMove = this.handleTouchMove.bind(this);
+    this.draw = this.draw.bind(this);
 
     this.initialize();
   }
@@ -52,64 +62,95 @@ class PixelAnimationSystem {
     this.setupCanvas();
     this.initColoredPixels();
     this.setupEventListeners();
-    this.draw();
+    this.draw(performance.now());
   }
 
   private setupCanvas(): void {
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
+    // Use CSS for canvas size
+    this.canvas.style.width = `${this.width}px`;
+    this.canvas.style.height = `${this.height}px`;
+
+    // Set actual pixels (considering device pixel ratio)
+    const scale = window.devicePixelRatio || 1;
+    this.canvas.width = this.width * scale;
+    this.canvas.height = this.height * scale;
+
+    // Scale context to match
+    this.ctx.scale(scale, scale);
+
     this.initializePixels();
   }
 
   private initializePixels(): void {
-    this.pixels = [];
-    for (let y = 0; y < this.height / this.pixelSize; y++) {
-      for (let x = 0; x < this.width / this.pixelSize; x++) {
-        this.pixels.push({ x: x * this.pixelSize, y: y * this.pixelSize, w: this.pixelSize - 2, h: this.pixelSize - 2, color: '#222', alpha: 1 });
-      }
+    const totalPixels = Math.ceil(this.height / this.pixelSize) * Math.ceil(this.width / this.pixelSize);
+    this.pixels = new Array(totalPixels);
+
+    // Batch pixel creation
+    for (let i = 0; i < totalPixels; i++) {
+      const x = (i % this.pixelsPerRow) * this.pixelSize;
+      const y = Math.floor(i / this.pixelsPerRow) * this.pixelSize;
+      this.pixels[i] = {
+        x,
+        y,
+        w: this.pixelSize - 2,
+        h: this.pixelSize - 2,
+        color: '#222',
+        alpha: 1
+      };
     }
   }
 
   private initColoredPixels(): void {
-    this.coloredPixels = [];
-    for (let i = 0; i < 300; i++) {
-      this.coloredPixels.push({
-        x: this.width / 2,
-        y: this.height / 2,
+    const totalColoredPixels = 300;
+    this.coloredPixels = new Array(totalColoredPixels);
+
+    // Pre-calculate center position
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+
+    for (let i = 0; i < totalColoredPixels; i++) {
+      this.coloredPixels[i] = {
+        x: centerX,
+        y: centerY,
         alpha: 0,
-        color: this.colors[i % 5],
+        color: this.colors[i % this.colors.length],
         vx: -1 + Math.random() * 2,
         vy: -1 + Math.random() * 2
-      });
+      };
     }
   }
 
   private setupEventListeners(): void {
-    window.addEventListener('resize', this.handleResize);
-    window.addEventListener('mousemove', this.handleMouseMove);
-    document.addEventListener('touchstart', this.handleTouchMove);
-    document.addEventListener('touchmove', this.handleTouchMove);
+    // Use passive event listeners where possible
+    window.addEventListener('resize', this.handleResize, { passive: true });
+    window.addEventListener('mousemove', this.handleMouseMove, { passive: true });
+    document.addEventListener('touchstart', this.handleTouchMove, { passive: false });
+    document.addEventListener('touchmove', this.handleTouchMove, { passive: false });
   }
 
   private handleResize(): void {
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
-    this.setupCanvas();
+    // Debounce resize handling
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+    }
+
+    this.resizeTimeout = setTimeout(() => {
+      this.width = window.innerWidth;
+      this.height = window.innerHeight;
+      this.pixelsPerRow = Math.floor(this.width / this.pixelSize);
+      this.setupCanvas();
+    }, 150);
   }
 
   private handleMouseMove(e: MouseEvent): void {
-    this.mousePosition = {
-      x: e.pageX,
-      y: e.pageY
-    };
+    this.mousePosition.x = e.pageX;
+    this.mousePosition.y = e.pageY;
   }
 
   private handleTouchMove(e: TouchEvent): void {
     e.preventDefault();
-    this.mousePosition = {
-      x: e.touches[0].pageX,
-      y: e.touches[0].pageY
-    };
+    this.mousePosition.x = e.touches[0].pageX;
+    this.mousePosition.y = e.touches[0].pageY;
   }
 
   private launchPixel(): void {
@@ -118,75 +159,85 @@ class PixelAnimationSystem {
     pixel.y = this.mousePosition.y;
     pixel.alpha = 1;
 
-    this.currentPixel++;
-    if (this.currentPixel > 299) this.currentPixel = 0;
+    this.currentPixel = (this.currentPixel + 1) % 300;
   }
 
   private drawGrid(): void {
     this.ctx.clearRect(0, 0, this.width, this.height);
 
-    // Reset pixel colors
-    for (let i = 0; i < this.pixels.length; i++) {
-      this.pixels[i].color = '';
-    }
+    // Reset and update colored pixels in a single pass
+    const pixelUpdates = new Map<number, ColoredPixel>();
 
-    // Update colored pixels
-    for (let i = 0; i < this.coloredPixels.length; i++) {
-      const coloredPixel = this.coloredPixels[i];
-      const pixelIndex = Math.floor(coloredPixel.y / this.pixelSize) * (Math.floor(this.width / this.pixelSize) + 1) + Math.floor(coloredPixel.x / this.pixelSize);
+    for (const coloredPixel of this.coloredPixels) {
+      if (coloredPixel.alpha > 0) {
+        coloredPixel.alpha = Math.max(0, coloredPixel.alpha - 0.008);
+        coloredPixel.x += coloredPixel.vx;
+        coloredPixel.y += coloredPixel.vy;
 
-      if (this.pixels[pixelIndex]) {
-        this.pixels[pixelIndex].color = coloredPixel.color;
-        this.pixels[pixelIndex].alpha = coloredPixel.alpha;
+        const pixelIndex = Math.floor(coloredPixel.y / this.pixelSize) * this.pixelsPerRow +
+          Math.floor(coloredPixel.x / this.pixelSize);
+
+        if (this.pixels[pixelIndex]) {
+          pixelUpdates.set(pixelIndex, coloredPixel);
+        }
       }
-
-      // Update pixel properties
-      if (coloredPixel.alpha > 0) coloredPixel.alpha -= 0.008;
-      if (coloredPixel.alpha < 0) coloredPixel.alpha = 0;
-      coloredPixel.x += coloredPixel.vx;
-      coloredPixel.y += coloredPixel.vy;
     }
 
-    // Draw text
+    // Draw text (cached when possible)
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.textBaseline = 'middle';
     this.ctx.textAlign = 'center';
-
-    // Calculate font size (30% of screen height)
-    // const fontSize = Math.floor((this.width / this.height) * 150);
     this.ctx.font = `bold 22vmin geistSans`;
+    this.ctx.fillText('AP3IFY👋', this.width / 2, this.height / 3);
 
-    // Draw text centered
-    this.ctx.fillText(
-      'AP3IFY👋',
-      this.width / 2,
-      this.height / 2
-    );
-
-    // Draw pixels
+    // Batch render pixels
+    this.ctx.fillStyle = '#222';
     for (const pixel of this.pixels) {
       this.ctx.globalAlpha = 1;
       this.ctx.fillStyle = '#222';
       this.ctx.fillRect(pixel.x, pixel.y, pixel.w, pixel.h);
 
-      this.ctx.globalAlpha = pixel.alpha;
-      this.ctx.fillStyle = pixel.color;
-      this.ctx.fillRect(pixel.x, pixel.y, pixel.w, pixel.h);
+      const coloredPixel = pixelUpdates.get(this.pixels.indexOf(pixel));
+      if (coloredPixel) {
+        this.ctx.globalAlpha = coloredPixel.alpha;
+        this.ctx.fillStyle = coloredPixel.color;
+        this.ctx.fillRect(pixel.x, pixel.y, pixel.w, pixel.h);
+      }
     }
   }
 
-  private draw(): void {
-    this.launchPixel();
-    this.drawGrid();
-    requestAnimationFrame(() => this.draw());
+  private draw(timestamp: number): void {
+    // Implement frame rate control
+    const elapsed = timestamp - this.lastFrameTime;
+
+    if (elapsed >= this.frameInterval) {
+      this.lastFrameTime = timestamp - (elapsed % this.frameInterval);
+      this.launchPixel();
+      this.drawGrid();
+    }
+
+    this.animationFrameId = requestAnimationFrame(this.draw);
   }
 
   public destroy(): void {
+    // Clean up resources
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+    }
     window.removeEventListener('resize', this.handleResize);
     window.removeEventListener('mousemove', this.handleMouseMove);
     document.removeEventListener('touchstart', this.handleTouchMove);
     document.removeEventListener('touchmove', this.handleTouchMove);
+
+    // Clear arrays
+    this.pixels = [];
+    this.coloredPixels = [];
   }
+
+  private resizeTimeout: ReturnType<typeof setTimeout> | null = null;
 }
 
 // Usage with React:
