@@ -9,6 +9,12 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        geistSans: "var(--font-geist-sans)",
+        geistMono: "var(--font-geist-mono)",
+        interRegular: "var(--font-inter-regular)",
+        dots: "var(--font-dots)",
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

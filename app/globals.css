@@ -61,10 +61,12 @@
 @layer base {
   * {
     @apply border-border;
+    @apply antialiased;
   }
 
   body {
     @apply bg-background text-foreground;
+    @apply font-geistSans;
 
     cursor:
       -webkit-image-set(

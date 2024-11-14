@@ -16,6 +16,18 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+const interRegular = localFont({
+  src: "./fonts/inter-Regular.woff2",
+  variable: "--font-inter-regular",
+  weight: "400",
+});
+
+const offBitDotBold = localFont({
+  src: "./fonts/OffBit-DotBold.woff2",
+  variable: "--font-dots",
+  weight: "900",
+});
+
 export const metadata: Metadata = {
   title: "Home | Apppify",
   description: "Turn API to APP",
@@ -29,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${interRegular.variable} ${offBitDotBold.variable} antialiased`}
       >
         <ThemeProvider
           attribute="class"
